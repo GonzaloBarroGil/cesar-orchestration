@@ -434,3 +434,132 @@ parallel.
 2. Add missing `GET /consorcios` endpoint to CESAR OpenAPI spec
 3. Scaffold Phase 0 (project setup with Vite + orval + MSW)
 4. Begin Phase 1 development (core admin flows)
+
+---
+
+## 9. Architectural Alternatives Considered
+
+Three architectural alternatives were evaluated against the project's specific
+constraints: microfrontends, Web Components, and a BFF (Backend for Frontend)
+layer.
+
+### 9.1 Microfrontends
+
+**What it means:** Each bounded context (consorcios, expenses, invoices, etc.)
+is deployed as an independent frontend application, composed at runtime by a
+shell app via Module Federation or a similar mechanism.
+
+| Factor                     | Microfrontends                    | Monolithic SPA (current plan)        |
+|----------------------------|-----------------------------------|--------------------------------------|
+| Team size                  | Suited for 3+ independent teams   | Optimal for 1–2 developers           |
+| Module independence        | Works best when modules are standalone apps, never cross-linked | CESAR's bounded contexts are **sequential in workflow**: create expenses → generate liquidaciones → register payments. Cross-navigation is frequent |
+| Shared domain objects      | Requires shared library package; drift risk across MFs | Single import; no drift              |
+| Routing                    | Cross-MF navigation complex (e.g., expense detail linking to its invoice) | React Router handles naturally       |
+| Bundle size                | Each MF ships its own React, inflating total payload | Single tree-shaken bundle            |
+| Build tooling              | Module Federation requires Webpack 5 / Rspack, adding config complexity | Vite alone; minimal configuration    |
+| CI/CD                      | Each MF has its own pipeline and versioning | Single pipeline; simpler             |
+
+**Verdict: Not adopted.** Microfrontends introduce orchestration complexity
+(shell app, shared dependency negotiation, cross-MF communication, design
+system consistency) with no payoff at this scale. The bounded contexts are not
+independent "apps" — they are steps in a single administrative workflow driven
+by one team.
+
+### 9.2 Web Components
+
+**What it means:** Shared Argentine-specific UI elements (CUITInput,
+MoneyDisplay, PeriodPicker, IvaConditionSelect) are built as
+framework-agnostic Web Components using the Custom Elements API.
+
+| Component           | Feasible as a Web Component? | Practical concern                                                                                                                                          |
+|---------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `CUITInput`         | Yes (input + validation)     | Must integrate with React Hook Form, which does not natively bind to custom elements. Requires `useRef` + `useEffect` wiring, losing type safety          |
+| `MoneyDisplay`      | Trivial (format + render)    | Overkill — it is a single formatting function; a React component with props is simpler                                                                     |
+| `PeriodPicker`      | Possible (date range picker) | Already a complex component; wrapping in a Web Component adds an abstraction layer. React integration requires `@lit/react` wrappers or manual binding    |
+| `IvaConditionSelect`| Yes (dropdown)               | shadcn/ui's `Select` primitive already solves this with full keyboard navigation, ARIA attributes, and consistent styling                                 |
+
+Adding Web Components to a React project carries specific costs:
+
+- React's synthetic event system does not propagate events from custom elements
+  natively; every event must be manually forwarded.
+- Form libraries (React Hook Form + Zod) lose type safety across the custom
+  element boundary — `register()` cannot type-check the emitted value.
+- The entire shadcn/ui ecosystem is React-only. Mixing Web Components means
+  maintaining two parallel sets of design tokens and interaction patterns.
+- Shadow DOM encapsulation blocks Tailwind CSS utility classes unless the
+  stylesheet is injected into each shadow root.
+
+**Verdict: Not adopted.** Web Components solve cross-framework sharing, a
+problem that does not exist in this project (React is the only framework).
+Shared components as plain React components with typed props are simpler,
+type-safe, and work seamlessly with React Hook Form, shadcn/ui, and
+Tailwind CSS.
+
+### 9.3 BFF (Backend for Frontend)
+
+**What it means:** A lightweight server-side layer (e.g., Next.js API routes)
+sits between the React SPA and CESAR's Rust API. It handles endpoint
+aggregation, response shaping, SSR, and auth proxying.
+
+**Arguments for adding a BFF:**
+
+1. **Endpoint aggregation** — CESAR lacks `GET /consorcios` (list) and
+   `GET /dashboard` (metrics) endpoints. A BFF could fan out to multiple CESAR
+   calls and return a single aggregated response, reducing client-side
+   chattiness.
+2. **Response shaping** — CESAR returns raw domain objects. A BFF could flatten
+   nested structures, strip fields based on role, or add computed values (e.g.,
+   collection rate, overdue count) without modifying the Rust backend.
+3. **SSR potential** — If SEO or faster initial loads matter later, a BFF
+   (Next.js with SSR) enables server-rendered pages. Public-facing owner
+   portals could benefit.
+4. **Auth hardening** — Instead of storing the JWT in the browser (localStorage
+   or memory), the BFF validates the token server-side and uses an HttpOnly
+   session cookie with the browser. More resilient to XSS.
+
+**Arguments against adding a BFF now:**
+
+1. **Additional service** — CESAR + web app = 2 services. Adding a BFF makes it
+   3. More infrastructure, deployment, and monitoring overhead.
+2. **MSW complexity** — MSW currently mocks the CESAR API directly. With a BFF,
+   you must mock either the BFF itself or the CESAR calls behind it. Either
+   adds indirection during development.
+3. **TanStack Query already handles client-side aggregation** — you can compose
+   multiple queries, cache results, and compute derived state without a server
+   intermediary.
+4. **CESAR already has permissive CORS** — no CORS bypass is needed.
+5. **The missing endpoints should ideally be fixed at the source** — adding
+   `GET /consorcios` and dashboard aggregation to CESAR itself is the correct
+   long-term solution, not papering over gaps with a BFF.
+
+| Scenario                         | Direct API (current plan)                         | With BFF                                           |
+|----------------------------------|---------------------------------------------------|----------------------------------------------------|
+| Dashboard loading                | 6 parallel GET calls; TanStack Query handles race | 1 BFF call that fans out and aggregates all 6      |
+| Missing `GET /consorcios`        | Client-side workaround (localStorage fallback)    | BFF could proxy a filtered list, but still needs the backend endpoint to exist |
+| PDF download                     | Direct `GET /liquidaciones/{id}/pdf` (binary)     | BFF proxies the binary stream; adds latency        |
+| Auth                             | JWT in browser memory, Bearer header on every request | JWT validated server-side; HttpOnly session cookie in browser |
+| Added complexity                 | None                                              | Another repo, CI/CD pipeline, deployment target    |
+
+**Verdict: Deferred, not rejected.** A BFF adds real value for endpoint
+aggregation and auth hardening, but it is premature for v0.1. The recommended
+approach:
+
+- **v0.1:** Direct API consumption (current plan). Prove the UI works
+  against the OpenAPI contract. Identify concrete pain points (e.g., how many
+  parallel calls does a dashboard really need? Is chattiness a real problem?).
+- **Post Phase 2 evaluation:** If aggregation chattiness or auth concerns
+  become bottlenecks, introduce a thin BFF layer. The most natural fit would be
+  migrating the Vite SPA to Next.js, keeping the React components and adding
+  API routes incrementally.
+
+When/if a BFF is introduced, the technology choice would be **Next.js API
+routes** (or tRPC if type-safety across the BFF boundary is desired), keeping
+the React frontend within the same project for colocation benefits.
+
+### 9.4 Summary of Architectural Decisions
+
+| Concern                           | Evaluated              | Adopted / Deferred    | Rationale                                                                 |
+|-----------------------------------|------------------------|------------------------|---------------------------------------------------------------------------|
+| Microfrontends                    | No                     | Monolithic React SPA   | Team of 1–2; sequential workflows; no independent release benefit         |
+| Web Components for shared widgets | No                     | React components       | Single-framework project; Web Components break React Hook Form + shadcn/ui |
+| BFF (Backend for Frontend)        | Deferred (post-Phase 2) | Direct API consumption | Premature for v0.1; evaluate after proving UI against OpenAPI contract    |
