@@ -186,21 +186,140 @@ remove the manual handler.
 
 ---
 
-## 4. Priority & Recommendations
+## Issue 4: Missing Auth Endpoints in OpenAPI Spec
+
+**Severity:** High — frontend cannot generate typed hooks for login/session/health.
+
+### Description
+
+The OpenAPI spec does not define any authentication or health endpoints:
+
+- `POST /api/v1/auth/login` — not in the spec
+- `GET /api/v1/auth/me` — not in the spec
+- `GET /api/v1/health` — not in the spec
+
+The tags section also has no `Auth` tag. These endpoints are referenced in the
+security scheme description (`BearerAuth: JWT token obtained via POST /api/v1/auth/login`)
+and in the feasibility analysis, but no path definitions exist.
+
+### Impact
+
+- orval cannot generate typed TanStack Query hooks for auth.
+- MSW handlers must be hand-written without type support.
+- TypeScript cannot verify request/response contract for auth.
+- Health endpoint is used by the frontend's `HealthIndicator` component.
+
+### Fix
+
+Add three endpoints to the OpenAPI spec under a new `Auth` tag:
+
+```yaml
+tags:
+  - name: Auth
+    description: Authentication and health endpoints
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: JWT token and user info
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/401'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      operationId: getMe
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/401'
+
+  /health:
+    get:
+      tags: [Auth]
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, degraded]
+                  postgres:
+                    type: string
+                  redis:
+                    type: string
+                  nats:
+                    type: string
+```
+
+### Workaround (used by cesar-web)
+
+MSW handlers manually written in `src/mocks/handlers/auth.ts` with hand-typed
+request/response shapes. Zod schemas written manually in `src/api/schemas.ts`.
+No generated type support.
+
+---
+
+## 5. Priority & Recommendations
 
 | Issue | Priority | Fix Complexity | Blocking? |
 |---|---|---|---|
 | Issue 1 — Invalid `$ref` headers/IdempotencyKey | **High** | Trivial (7x sed) | Yes — orval fails |
 | Issue 2 — Missing `responses` component | **Medium** | Low (add 7 response objects) | Partially — stub types needed |
 | Issue 3 — Missing `GET /consorcios` | Medium | Low (1 endpoint + handler) | No — MSW workaround in place |
+| Issue 4 — Missing auth endpoints | **High** | Low (add 3 endpoints + `UserResponse` schema) | Yes — no typed auth hooks |
 
 ### Recommended Action
 
 1. **Fix Issue 1 immediately** — it's a trivial spec bug (7 string replacements)
    that blocks any OpenAPI tooling.
-2. **Fix Issue 2** — defines proper response objects, letting orval generate
+2. **Fix Issue 4** — auth is a foundation feature needed by every other module.
+   Without typed hooks, the contract boundary is broken.
+3. **Fix Issue 2** — defines proper response objects, letting orval generate
    correct types without stubs. Low effort, improves spec completeness.
-3. **Fix Issue 3** — needed before v0.1 integration with the real backend.
+4. **Fix Issue 3** — needed before v0.1 integration with the real backend.
    MSW covers development phase.
 
 ---
