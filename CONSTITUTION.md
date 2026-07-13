@@ -222,37 +222,43 @@ This document does NOT supersede project constitutions on matters of:
 
 ## 9. Current Ecosystem State (2026-07-13)
 
+_Last assessed: 2026-07-13. See `docs/ecosystem-assessment-2026-07-13.md` for full details._
+
 ### cesar — Backend
 
-- **Constitution**: APPROVED (2026-06-21)
-- **Phase 1**: COMPLETE — all 6 modules (consorcio, expenses, invoices, debt, payments, incomes-outputs)
-- **Tests**: 1,083 passing (487 domain + 200 service + 350 integration + 43 property-based)
-- **Last commit**: `fix(cesar): [T0.9,W7] make debt services optional, fix route syntax, wire app for startup`
-- **Working tree**: clean
-- **Known gaps** (from `cesar-backend-concerns.md`):
-  - 2/20 DB migrations exist
-  - Many repository implementations are `todo!()` stubs
-  - Missing auth endpoints in OpenAPI spec
-  - Missing `GET /consorcios` list endpoint
-  - No dashboard aggregation endpoints
+- **Constitution**: APPROVED (2026-06-21), ADR-006 (Ecosystem) committed 2026-07-13
+- **Domain models**: All 6 modules complete (12,839 lines)
+- **Services**: All 6 modules complete (7,647 lines)
+- **Handlers**: 5 of 6 (payments handler missing)
+- **Tests**: 1,083 passing, 0 failures (unit/property against mock repos)
+- **DB migrations**: 2 of ~22 tables (users + consorcios only)
+- **PG repositories**: 0 of 16 implemented (1 stub file with todo!())
+- **AppState**: All service/repo fields set to `None` — app boots but business endpoints unreachable
+- **Last commit**: `docs(constitution): [CONSTITUTION] new ADR on ecosystem orchestration`
 
 ### cesar-web — Frontend
 
-- **Constitution**: APPROVED (2026-06-25)
-- **Features**: 3/9 implemented (auth, consorcios, layout)
-- **PLAN**: 70 tasks, 7 waves — currently at Wave 2 (Consorcios)
-- **Last commit**: `test(consorcio): [TEST,T1.5,RED] add passing tests for consorcio components`
-- **Working tree**: unstaged changes in consorcio components
-- **Next wave**: Wave 3 — Expenses ∥ Invoices (16 tasks)
+- **Constitution**: APPROVED (2026-06-25), ADR-008 (Ecosystem) committed 2026-07-13
+- **Features implemented**: 3 of 9 (auth, consorcios, layout) — Waves 1-2
+- **Tests**: 108 passing, 0 failures (16 test files)
+- **BDD**: 27 `.feature` files across all 9 modules. Zero step definitions written.
+- **Generated API**: All 7 endpoint modules + 156 model types via orval
+- **PLAN.md**: Out of sync — claims 69/69 complete, reality is 20/69
+- **CI pipeline**: None
+- **Orval source**: Fragile `/tmp/` workaround
+- **Last commit**: `docs(constitution): [CONSTITUTION] new ADR on ecosystem orchestration`
 
-### Blockers (from `cesar-backend-concerns.md`)
+### Blockers (prioritized)
 
-| # | Blocker | Blocks |
-|---|---|---|
-| 1 | Missing auth endpoints in OAS | cesar-web W1 auth integration against real API |
-| 2 | Missing `GET /consorcios` endpoint | cesar-web W2 ConsorcioSelector (MSW workaround in place) |
-| 3 | Only 2 DB migrations | Real backend cannot run full schema |
-| 4 | Repository stubs (todo!()) | Endpoints return 501 / unimplemented |
+| Priority | Blocker | Project | Unblocks |
+|---|---|---|---|
+| P0 | DB migrations (20 tables missing) | cesar | All PG repos, all cesar-web integration |
+| P0 | PG repository implementations (16 traits) | cesar | All cesar endpoints |
+| P0 | AppState wire-up with real repos | cesar | Functional backend |
+| P1 | Payments handler | cesar | Payments routes |
+| P1 | PLAN.md correction | cesar-web | Accurate orchestration |
+| P2 | OAS spec fixes (4 issues) | cesar | Clean orval pipeline |
+| P2 | CI pipeline | cesar-web | Automated quality gates |
 
 ---
 
