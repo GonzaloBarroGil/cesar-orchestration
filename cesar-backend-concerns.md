@@ -189,23 +189,70 @@ All 16 repository traits across 6 modules now have real PG implementations (5,27
 
 No `todo!()` stubs remain. Tests: 1,169 pass, 0 fail.
 
-Next: AppState wire-up to connect these repos to the running application.
+---
+
+## 8. No Seed Users — Auth-Protected Endpoints Untestable
+
+**Discovered:** 2026-07-14 — integration smoke test
+**Severity:** Medium — blocks live endpoint testing
+
+### Description
+
+Migrations create the `usuarios` table but no users are seeded. The auth middleware rejects all requests to protected endpoints (POST/PUT/DELETE operations). Without a valid JWT, the following cannot be tested live:
+- `POST /consorcios` (create)
+- `POST /expenses/*`, `PUT /expenses/*`, `DELETE /expenses/*`
+- `POST /invoices/*`, `PUT /invoices/*`
+- `POST /debt/*`
+- `POST /payments`, `POST /payments/{id}/reverse`
+- `POST /incomes_outputs/*`
+
+### Impact
+
+- Integration smoke test can only verify `GET /health` (always public) and auth middleware behavior (correctly rejects unauthenticated requests).
+- Real end-to-end data flow (create consorcio → add units → assign propietarios → etc.) cannot be verified manually or via scripts.
+- Frontend integration testing against a real backend requires manually inserting users via SQL.
+
+### What the Backend Needs
+
+Add a seed SQL migration or seed script that inserts at least one `ADMIN` user with a known password hash. For v0.1, a single pre-seeded admin user is sufficient.
+
+---
+
+## 9. `GET /consorcios` Handler Missing
+
+**Discovered:** 2026-07-14 — integration smoke test
+**Severity:** Medium — OAS spec defines the endpoint, handler doesn't implement it
+
+### Description
+
+The OAS spec was fixed in step 3a to add `GET /consorcios` returning `ConsorcioResponse[]`, but `src/consorcio/handler.rs` only registers `post(create_consorcio)` at `/api/v1/consorcios`. The `routes()` function has no `.get(list_consorcios)` route. Requests return `405 Method Not Allowed` with `Allow: POST`.
+
+### Impact
+
+- The ConsorcioSelector in cesar-web cannot retrieve the list of consorcios.
+- `POST /consorcios` works (correctly behind auth) but there's no way to retrieve previously created consorcios via the API.
+
+### What the Backend Needs
+
+Add a `list_consorcios` handler function to `src/consorcio/handler.rs` and register it as `.get(list_consorcios)` in the `routes()` function. Should accept optional `limit`/`offset` query params matching the OAS spec, and call `ConsorcioService::list_all()` (or similar).
 
 ---
 
 ## Summary
 
 | # | Concern | Severity | Status |
-|---|---|---|---|
+|---|---|---|---|---|
 | 1 | Missing auth endpoints in spec | — | ✅ FIXED 2026-07-13 |
-| 2 | Missing `GET /consorcios` endpoint | — | ✅ FIXED 2026-07-13 |
+| 2 | Missing `GET /consorcios` endpoint in spec | — | ✅ FIXED 2026-07-13 (spec only) |
 | 3 | PDF liquidacion returns 501 | Low | Deferred |
 | 4 | No dashboard aggregation | Medium | Deferred (post-v0.1) |
 | 5 | No user management endpoints | Low | Deferred (post-v0.1) |
 | 6 | Only 2 DB migrations exist | — | ✅ FIXED 2026-07-13 |
-| 7 | Many repository `todo!()` stubs | — | ✅ FIXED 2026-07-14
+| 7 | Many repository `todo!()` stubs | — | ✅ FIXED 2026-07-14 |
+| 8 | No seed users — auth endpoints untestable | Medium | ⬜ Pending |
+| 9 | `GET /consorcios` handler not implemented | Medium | ⬜ In progress |
 
-**Verdict:** 4 of 7 concerns resolved. The main blocker is now AppState wire-up (repos exist but aren't connected to the running app). Concerns 3-5 are deferred to post-v0.1.
+**Verdict:** 4 of 9 concerns resolved. AppState is now wired (all repos + services connected). The remaining blockers are seed users (#8) and the GET /consorcios handler (#9). Concerns 3-5 are deferred to post-v0.1.
 
 **Tech debt** (non-blocking inconsistencies): See `docs/cesar-tech-debt.md` for 4 AppState pattern issues discovered during wire-up analysis.
 
