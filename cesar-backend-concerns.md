@@ -2,15 +2,22 @@
 
 > **Context:** Issues discovered during CESAR Web CFFD phases that depend on
 > CESAR backend resolution.
-> **Date:** 2026-06-25
+> **Date:** 2026-06-25. Updated 2026-07-13.
 > **Source Phases:** Feasibility Analysis → Contract Setup → SPEC (auth)
+> **Resolution:** 3 of 7 concerns resolved (auth/consorcio spec + migrations).
+>   Remaining: repository stubs (in progress), PDF/download, dashboard, user mgmt.
 
 ---
 
-## 1. Missing Auth Endpoints
+## 1. Missing Auth Endpoints ✅ FIXED 2026-07-13
 
 **Discovered:** SPEC phase — auth
-**Severity:** High — blocks typed auth hooks
+**Severity:** ~~High~~ — FIXED
+
+Fixed in step 3a (OAS hygiene). Added to `cesar/api/openapi.yaml`:
+- `POST /auth/login`, `GET /auth/me`, `GET /health`
+- `LoginRequest`, `LoginResponse`, `UserInfo`, `MeResponse`, `HealthResponse` schemas
+- `Auth` and `Health` tags
 
 ### Description
 
@@ -43,10 +50,13 @@ definitions exist in `api/openapi.yaml`.
 
 ---
 
-## 2. Missing `GET /consorcios` List Endpoint
+## 2. Missing `GET /consorcios` List Endpoint ✅ FIXED 2026-07-13
 
 **Discovered:** Feasibility Analysis §7
-**Severity:** Medium — frontend cannot populate consorcio selector
+**Severity:** ~~Medium~~ — FIXED
+
+Added `GET /consorcios` with `limit`/`offset` query params to `cesar/api/openapi.yaml`.
+Returns `ConsorcioResponse[]` — same schema as `POST /consorcios`.
 
 ### Description
 
@@ -140,28 +150,24 @@ Add `/users` CRUD endpoints with `ADMIN` role guard.
 
 ---
 
-## 6. Only 2 DB Migrations Exist
+## 6. DB Migrations Complete ✅ FIXED 2026-07-13
 
 **Discovered:** Feasibility Analysis §3.2
-**Severity:** High — blocks backend integration
+**Severity:** ~~High~~ — FIXED
 
-### Description
+8 migration files now exist (2 original + 6 new):
+| Migration | Date | Tables |
+|---|---|---|
+| 001 | 2026-06-22 | users |
+| 002 | 2026-06-22 | consorcios |
+| 003 | 2026-07-13 | unidades_funcionales, propietarios, periodos, reglamentos, actas, votaciones, etc. |
+| 004 | 2026-07-13 | concepts, categories, providers, expenses |
+| 005 | 2026-07-13 | invoices, invoice_lines, notas_credito_debito, recibos |
+| 006 | 2026-07-13 | liquidaciones, expense_allocations, interest_tables, compensatory_interests, certificados_deuda |
+| 007 | 2026-07-13 | payments, payment_history |
+| 008 | 2026-07-13 | incomes_outputs |
 
-CESAR has only 2 SQLx migrations (users, consorcios). The remaining ~18+
-tables (expenses, invoices, debt, payments, incomes-outputs and their
-supporting tables) have not been migrated.
-
-### Frontend Impact
-
-- When the frontend switches from MSW to the real backend, many endpoints
-  will fail because database tables don't exist.
-- This is the primary blocker for integration testing.
-
-### What the Backend Needs
-
-Complete all migrations for Phase 1 modules: expenses schema, invoices schema
-(JSONB for items and adicionales_rg), debt schema, payments schema,
-incomes-outputs schema, plus junction tables and audit event tables.
+**24 tables total** across all 6 domain modules. All follow existing conventions (UUID v7, TIMESTAMPTZ, snake_case, append-only status enums, BIGINT for cents).
 
 ---
 
@@ -187,20 +193,19 @@ Replace all `todo!()` stubs with real SQLx implementations.
 
 ## Summary
 
-| # | Concern | Severity | Blocking v0.1? | Phase |
-|---|---|---|---|---|
-| 1 | Missing auth endpoints in spec | High | Yes | SPEC |
-| 2 | Missing `GET /consorcios` endpoint | Medium | Yes (integration) | Feasibility |
-| 3 | PDF liquidacion returns 501 | Low | No (deferred) | Feasibility |
-| 4 | No dashboard aggregation | Medium | No (client-side) | Feasibility |
-| 5 | No user management endpoints | Low | No (out of scope) | Feasibility |
-| 6 | Only 2 DB migrations exist | High | Yes (integration) | Feasibility |
-| 7 | Many repository `todo!()` stubs | High | Yes (integration) | Feasibility |
+| # | Concern | Severity | Status |
+|---|---|---|---|
+| 1 | Missing auth endpoints in spec | — | ✅ FIXED 2026-07-13 |
+| 2 | Missing `GET /consorcios` endpoint | — | ✅ FIXED 2026-07-13 |
+| 3 | PDF liquidacion returns 501 | Low | Deferred |
+| 4 | No dashboard aggregation | Medium | Deferred (post-v0.1) |
+| 5 | No user management endpoints | Low | Deferred (post-v0.1) |
+| 6 | Only 2 DB migrations exist | — | ✅ FIXED 2026-07-13 |
+| 7 | Many repository `todo!()` stubs | High | ⬜ Pending (next step)
 
-**Verdict:** The frontend can proceed with full development against MSW mocks.
-Three concerns block backend integration: auth endpoints in spec (§1), DB
-migrations (§6), and `todo!()` stubs (§7). These must be resolved before the
-first integration test against the real backend.
+**Verdict:** 3 of 7 concerns resolved (OAS auth/consorcio + DB migrations). The
+remaining blocker for backend integration is the repository implementations (§7).
+Concerns 3-5 are deferred to post-v0.1.
 
 ---
 
