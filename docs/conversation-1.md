@@ -421,3 +421,69 @@ All 6 modules now have: domain models, services, handlers, PG repos, and AppStat
 
 ### Next: Integration smoke test — boot app with real PostgreSQL, hit a few endpoints.
 
+---
+
+## Phase 6 — Integration Smoke Test, Gaps, and Tech Debt (July 14, 2026)
+
+### Integration Smoke Test
+
+Booted app against real PostgreSQL 17 + Redis 7 + NATS 2.10 via docker-compose.
+
+| Endpoint | Result | Detail |
+|---|---|---|
+| `GET /health` | ✅ | All 3 dependencies OK |
+| `POST /auth/login` | ❌ | 401 — no users seeded |
+| `GET /consorcios` | ❌ | 405 Method Not Allowed — handler had no GET route |
+| `POST /consorcios` | ❌ | 422 — missing `fiscal_year_start` field in test request |
+
+**Two gaps found:** no seed users (#8), GET /consorcios handler missing (#9).
+
+### Fix #9: GET /consorcios Handler
+
+Added `list_consorcios` handler + `ListConsorciosQuery` struct. Added `list_all` to `ConsorcioService`, `find_all` (limit, offset) to `ConsorcioRepository` trait and its `PgConsorcioRepository` implementation.
+
+**Files:** `handler.rs` (+handler + route), `service.rs` (+method), `domain.rs` (+trait method), `repository.rs` (+impl).
+
+### Fix #8: Seed Users
+
+Created `src/bin/seed_admin.rs` — dedicated binary that reads `ADMIN_USERNAME`/`ADMIN_PASSWORD` from env vars, hashes with argon2id (same algorithm as login), and inserts into `users` table. Uses `ON CONFLICT (username) DO NOTHING` for idempotency.
+
+Added `default-run = "cesar"` to `Cargo.toml` (second binary broke `cargo run` default).
+
+**Full smoke test after fixes:**
+
+| Step | Result |
+|---|---|
+| `seed_admin` | ✅ Admin user created (argon2id hash) |
+| `POST /auth/login` | ✅ JWT with role ADMIN returned |
+| `GET /auth/me` | ✅ Authenticated user info |
+| `POST /consorcios` | ✅ Consorcio created (valid CUIT, all required fields) |
+| `GET /consorcios` | ✅ Returns list with created consorcio |
+
+### Tech Debt Resolution
+
+Reprioritized per user directive: TD-5 (feature gap) and TD-3 (Arc consistency) addressed now. TD-1, TD-2, TD-4 deferred to post-v0.1.
+
+**TD-5** (payments missing get/list): Added `get_payment` and `list_payments` to `PaymentService`, added `GET /api/v1/payments/{id}` and `GET /api/v1/payments?consorcio_id=...&filters` to handler.
+
+**TD-3** (payments repos by value): Converted `PaymentService<P, R>` generic to non-generic `PaymentService` with `Arc<dyn PaymentRepository>` + `Arc<dyn ReciboRepository>`. Now shares the invoices `recibo_repo` Arc. Updated handler's `payment_svc()` return type and AppState field.
+
+**Files changed:** `service.rs`, `handler.rs`, `state.rs` (both TD-5 and TD-3).
+
+### Final Backend State
+
+| Concern | Status |
+|---|---|
+| #1-2 (OAS spec) | ✅ |
+| #3-5 (PDF, dashboard, users) | Deferred post-v0.1 |
+| #6 (migrations) | ✅ |
+| #7 (todo!() stubs) | ✅ |
+| #8 (seed users) | ✅ |
+| #9 (GET /consorcios handler) | ✅ |
+| TD-3 (repos by value) | ✅ |
+| TD-5 (missing get/list payments) | ✅ |
+
+**6 of 9 concerns resolved. 2 of 5 tech debt items resolved. 1,169 tests, 0 failures.**
+
+### Next: cesar-web integration prep — orval regen against current OAS, MSW audit, Wave 3 assessment.
+

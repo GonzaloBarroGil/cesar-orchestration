@@ -191,70 +191,50 @@ No `todo!()` stubs remain. Tests: 1,169 pass, 0 fail.
 
 ---
 
-## 8. No Seed Users — Auth-Protected Endpoints Untestable
+## 8. No Seed Users — Auth-Protected Endpoints Untestable ✅ FIXED 2026-07-14
 
 **Discovered:** 2026-07-14 — integration smoke test
-**Severity:** Medium — blocks live endpoint testing
+**Severity:** ~~Medium~~ — FIXED
 
-### Description
+Created `src/bin/seed_admin.rs` — reads `ADMIN_USERNAME` and `ADMIN_PASSWORD` from env vars, hashes password with argon2id (same algorithm as login), inserts into `users` table. Idempotent (`ON CONFLICT DO NOTHING`).
 
-Migrations create the `usuarios` table but no users are seeded. The auth middleware rejects all requests to protected endpoints (POST/PUT/DELETE operations). Without a valid JWT, the following cannot be tested live:
-- `POST /consorcios` (create)
-- `POST /expenses/*`, `PUT /expenses/*`, `DELETE /expenses/*`
-- `POST /invoices/*`, `PUT /invoices/*`
-- `POST /debt/*`
-- `POST /payments`, `POST /payments/{id}/reverse`
-- `POST /incomes_outputs/*`
+Usage:
+```bash
+ADMIN_USERNAME=admin ADMIN_PASSWORD=secure123 cargo run --bin seed_admin
+```
 
-### Impact
-
-- Integration smoke test can only verify `GET /health` (always public) and auth middleware behavior (correctly rejects unauthenticated requests).
-- Real end-to-end data flow (create consorcio → add units → assign propietarios → etc.) cannot be verified manually or via scripts.
-- Frontend integration testing against a real backend requires manually inserting users via SQL.
-
-### What the Backend Needs
-
-Add a seed SQL migration or seed script that inserts at least one `ADMIN` user with a known password hash. For v0.1, a single pre-seeded admin user is sufficient.
+Also added `default-run = "cesar"` to `Cargo.toml` to disambiguate the two binaries.
 
 ---
 
-## 9. `GET /consorcios` Handler Missing
+## 9. `GET /consorcios` Handler Missing ✅ FIXED 2026-07-14
 
 **Discovered:** 2026-07-14 — integration smoke test
-**Severity:** Medium — OAS spec defines the endpoint, handler doesn't implement it
+**Severity:** ~~Medium~~ — FIXED
 
-### Description
+Added `list_consorcios` handler + `ListConsorciosQuery` (limit/offset) to `src/consorcio/handler.rs`. Added `list_all` method to `ConsorcioService`. Added `find_all` to `ConsorcioRepository` trait and its `PgConsorcioRepository` implementation. Registered `.get(list_consorcios)` on `/api/v1/consorcios`.
 
-The OAS spec was fixed in step 3a to add `GET /consorcios` returning `ConsorcioResponse[]`, but `src/consorcio/handler.rs` only registers `post(create_consorcio)` at `/api/v1/consorcios`. The `routes()` function has no `.get(list_consorcios)` route. Requests return `405 Method Not Allowed` with `Allow: POST`.
-
-### Impact
-
-- The ConsorcioSelector in cesar-web cannot retrieve the list of consorcios.
-- `POST /consorcios` works (correctly behind auth) but there's no way to retrieve previously created consorcios via the API.
-
-### What the Backend Needs
-
-Add a `list_consorcios` handler function to `src/consorcio/handler.rs` and register it as `.get(list_consorcios)` in the `routes()` function. Should accept optional `limit`/`offset` query params matching the OAS spec, and call `ConsorcioService::list_all()` (or similar).
+Smoke-tested: auth-protected, returns correct 401 without JWT, returns `[]` for empty DB, returns list after creating consorcio.
 
 ---
 
 ## Summary
 
 | # | Concern | Severity | Status |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | 1 | Missing auth endpoints in spec | — | ✅ FIXED 2026-07-13 |
-| 2 | Missing `GET /consorcios` endpoint in spec | — | ✅ FIXED 2026-07-13 (spec only) |
+| 2 | Missing `GET /consorcios` endpoint in spec | — | ✅ FIXED 2026-07-13 |
 | 3 | PDF liquidacion returns 501 | Low | Deferred |
 | 4 | No dashboard aggregation | Medium | Deferred (post-v0.1) |
 | 5 | No user management endpoints | Low | Deferred (post-v0.1) |
 | 6 | Only 2 DB migrations exist | — | ✅ FIXED 2026-07-13 |
 | 7 | Many repository `todo!()` stubs | — | ✅ FIXED 2026-07-14 |
-| 8 | No seed users — auth endpoints untestable | Medium | ⬜ Pending |
-| 9 | `GET /consorcios` handler not implemented | Medium | ⬜ In progress |
+| 8 | No seed users — auth endpoints untestable | — | ✅ FIXED 2026-07-14 |
+| 9 | `GET /consorcios` handler not implemented | — | ✅ FIXED 2026-07-14 |
 
-**Verdict:** 4 of 9 concerns resolved. AppState is now wired (all repos + services connected). The remaining blockers are seed users (#8) and the GET /consorcios handler (#9). Concerns 3-5 are deferred to post-v0.1.
+**Verdict:** 6 of 9 concerns resolved. Backend is fully operational: all modules have domain models, services, handlers, PG repos, AppState wiring, seed users, and verified smoke tests. Concerns 3-5 are deferred to post-v0.1.
 
-**Tech debt** (non-blocking inconsistencies): See `docs/cesar-tech-debt.md` for 4 AppState pattern issues discovered during wire-up analysis.
+**Tech debt:** See `docs/cesar-tech-debt.md` — 2 items resolved (TD-3, TD-5), 3 items deferred to post-v0.1 (TD-1, TD-2, TD-4).
 
 ---
 
