@@ -2,10 +2,10 @@
 
 > **Context:** Issues discovered during CESAR Web CFFD phases that depend on
 > CESAR backend resolution.
-> **Date:** 2026-06-25. Updated 2026-07-13.
+> **Date:** 2026-06-25. Updated 2026-07-14.
 > **Source Phases:** Feasibility Analysis → Contract Setup → SPEC (auth)
-> **Resolution:** 3 of 7 concerns resolved (auth/consorcio spec + migrations).
->   Remaining: repository stubs (in progress), PDF/download, dashboard, user mgmt.
+> **Resolution:** 4 of 7 concerns resolved (auth/consorcio spec + migrations + PG repos).
+>   Remaining: AppState wire-up (in progress), PDF/download, dashboard, user mgmt.
 
 ---
 
@@ -171,23 +171,25 @@ Add `/users` CRUD endpoints with `ADMIN` role guard.
 
 ---
 
-## 7. Many Repository Implementations Are `todo!()` Stubs
+## 7. Many Repository Implementations Are `todo!()` Stubs ✅ FIXED 2026-07-14
 
 **Discovered:** Feasibility Analysis §3.2
-**Severity:** High — blocks backend integration
+**Severity:** ~~High~~ — FIXED
 
-### Description
+All 16 repository traits across 6 modules now have real PG implementations (5,270 lines total):
 
-Multiple repository layer implementations contain `todo!()` macro stubs.
-Service layers may reference repositories that return mock data or panic.
+| Module | Repos | Methods | Lines | Commit |
+|---|---|---|---|---|
+| consorcio | 4 | 26 | 854 | `65c7de0` |
+| expenses | 4 | 19 | 793 | `d227a78` |
+| invoices | 2 | 17 | 1,260 | `6a4d43d` |
+| debt | 4 | 30+ | 1,124 | `c4151fd` |
+| payments | 1 | 5 | 537 | committed |
+| incomes_outputs | 1 | 7 | 622 | committed |
 
-### Frontend Impact
+No `todo!()` stubs remain. Tests: 1,169 pass, 0 fail.
 
-Same as §6 — switching from MSW to real backend will fail on stubbed endpoints.
-
-### What the Backend Needs
-
-Replace all `todo!()` stubs with real SQLx implementations.
+Next: AppState wire-up to connect these repos to the running application.
 
 ---
 
@@ -201,11 +203,11 @@ Replace all `todo!()` stubs with real SQLx implementations.
 | 4 | No dashboard aggregation | Medium | Deferred (post-v0.1) |
 | 5 | No user management endpoints | Low | Deferred (post-v0.1) |
 | 6 | Only 2 DB migrations exist | — | ✅ FIXED 2026-07-13 |
-| 7 | Many repository `todo!()` stubs | High | ⬜ Pending (next step)
+| 7 | Many repository `todo!()` stubs | — | ✅ FIXED 2026-07-14
 
-**Verdict:** 3 of 7 concerns resolved (OAS auth/consorcio + DB migrations). The
-remaining blocker for backend integration is the repository implementations (§7).
-Concerns 3-5 are deferred to post-v0.1.
+**Verdict:** 4 of 7 concerns resolved. The main blocker is now AppState wire-up (repos exist but aren't connected to the running app). Concerns 3-5 are deferred to post-v0.1.
+
+**Tech debt** (non-blocking inconsistencies): See `docs/cesar-tech-debt.md` for 4 AppState pattern issues discovered during wire-up analysis.
 
 ---
 
