@@ -2,10 +2,25 @@
 
 > **Date:** 2026-06-25
 > **Phase:** Contract Setup (cesar-web Phase 0)
-> **Severity:** Medium — blocks orval generation without workarounds
-> **Target:** `cesar/api/openapi.yaml` (5,779 lines, OpenAPI 3.1.0)
+> **Severity:** ~~Medium — blocks orval generation without workarounds~~ **All issues fixed 2026-07-13.**
+> **Target:** `cesar/api/openapi.yaml` (6,093 lines after fixes, OpenAPI 3.1.0)
+> **Fixes committed in:** cesar repo (OAS changes), cesar-orchestration (this doc update)
 
 ---
+
+## Resolution Status (2026-07-13)
+
+| Issue | Status | Fix |
+|---|---|---|
+| 1 — Invalid `$ref` to IdempotencyKey | ✅ FIXED | 7 occurrences corrected: `#/components/headers/` → `#/components/parameters/` |
+| 2 — Missing `responses` definitions | ✅ FIXED | Added 13 response schemas (7 numeric + 6 named) under `components/responses/` |
+| 3 — Missing `GET /consorcios` | ✅ FIXED | Added list endpoint with `limit`/`offset` query params |
+| 4 — Missing auth/health endpoints | ✅ FIXED | Added `POST /auth/login`, `GET /auth/me`, `GET /health` with full schemas |
+
+**Next step:** Regenerate orval in cesar-web using the fixed spec (no more `/tmp/` sed workaround needed).
+
+---
+## Original Issues (now fixed)
 
 ## Issue 1: Invalid `$ref` to `#/components/headers/IdempotencyKey`
 
@@ -304,23 +319,14 @@ No generated type support.
 
 ## 5. Priority & Recommendations
 
-| Issue | Priority | Fix Complexity | Blocking? |
+| Issue | Priority | Fix Complexity | Status |
 |---|---|---|---|
-| Issue 1 — Invalid `$ref` headers/IdempotencyKey | **High** | Trivial (7x sed) | Yes — orval fails |
-| Issue 2 — Missing `responses` component | **Medium** | Low (add 7 response objects) | Partially — stub types needed |
-| Issue 3 — Missing `GET /consorcios` | Medium | Low (1 endpoint + handler) | No — MSW workaround in place |
-| Issue 4 — Missing auth endpoints | **High** | Low (add 3 endpoints + `UserResponse` schema) | Yes — no typed auth hooks |
+| Issue 1 — Invalid `$ref` headers/IdempotencyKey | **High** | Trivial (7x replace) | ✅ FIXED 2026-07-13 |
+| Issue 2 — Missing `responses` component | **Medium** | Low (add 13 response objects) | ✅ FIXED 2026-07-13 |
+| Issue 3 — Missing `GET /consorcios` | Medium | Low (1 endpoint + handler) | ✅ FIXED 2026-07-13 |
+| Issue 4 — Missing auth endpoints | **High** | Low (3 endpoints + 6 schemas) | ✅ FIXED 2026-07-13 |
 
-### Recommended Action
-
-1. **Fix Issue 1 immediately** — it's a trivial spec bug (7 string replacements)
-   that blocks any OpenAPI tooling.
-2. **Fix Issue 4** — auth is a foundation feature needed by every other module.
-   Without typed hooks, the contract boundary is broken.
-3. **Fix Issue 2** — defines proper response objects, letting orval generate
-   correct types without stubs. Low effort, improves spec completeness.
-4. **Fix Issue 3** — needed before v0.1 integration with the real backend.
-   MSW covers development phase.
+All 4 issues resolved. The orval pipeline no longer needs the `/tmp/` sed workaround. Next step: regenerate orval types in cesar-web from the clean spec.
 
 ---
 
