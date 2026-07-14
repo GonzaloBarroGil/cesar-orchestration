@@ -72,13 +72,34 @@ fn liquidacion_repo(state: &AppState) -> Result<&(dyn LiquidacionRepository + 's
 
 ---
 
+## TD-5: PaymentService missing `get_payment` and `list_payments` methods
+
+**File:** `src/payments/service.rs`
+**Discovered:** 2026-07-14 — P1 payments handler implementation
+**Pattern:** `PaymentService` exposes `create_payment`, `reverse_payment`, `get_unit_balance`, `get_payment_history` but NOT `get_payment(id)` or `list_payments(filters)`. The OpenAPI spec defines `GET /api/v1/payments/{id}` and `GET /api/v1/payments` but the handler couldn't implement them.
+
+**Missing endpoints:**
+- `GET /api/v1/payments/{id}` → needs `PaymentService::get_payment(id)` 
+- `GET /api/v1/payments` → needs `PaymentService::list_payments(filters)`
+
+**Fix:** Add `get_payment` and `list_payments` methods to `PaymentService`, each delegating to the corresponding `PaymentRepository` trait method (already implemented in `PgPaymentRepository`). Then add two handler routes for these endpoints.
+
+**Endpoints already covered:**
+- `POST /api/v1/payments` ✅
+- `POST /api/v1/payments/{id}/reverse` ✅
+- `GET /api/v1/payments/unit/{unit_id}/balance` ✅
+- `GET /api/v1/payments/unit/{unit_id}/history` ✅
+
+---
+
 ## Summary
 
 | # | Concern | Module | Effort | Risk |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | TD-1 | Per-request service construction | expenses | Medium | Handler refactor |
 | TD-2 | Concrete generic type on AppState | incomes/outputs | Small | Handler signature changes |
 | TD-3 | Repos owned by value | payments | Small | Service + AppState changes |
 | TD-4 | Handler bypasses service layer | debt | Investigation | Remove/redundant fields |
+| TD-5 | Missing get/list payments service methods | payments | Small | Add 2 methods + 2 handler routes |
 
-**Priority:** Low. All 4 are code quality issues. The application compiles and passes all tests. Address before adding new modules (e.g., payments handler) to avoid compounding the inconsistency.
+**Priority:** Low. All 5 are code quality/completeness issues. The application compiles and passes all tests.

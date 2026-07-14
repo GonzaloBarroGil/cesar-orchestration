@@ -330,3 +330,94 @@ The debt repository added the debt test suite (75 tests). All pass. No regressio
 
 After PG repos: AppState wire-up with real repos → functional backend → cesar-web integration.
 
+---
+
+## Phase 5 — AppState Wire-Up + Payments Handler (July 14, 2026)
+
+### P0: AppState Wire-Up
+
+**Context:** All 16 PG repos were implemented but ALL 12 AppState fields were `Option::None`. The app could boot but every business endpoint returned 500.
+
+**Analysis:** Researched all handler access patterns, service constructors, and cross-module dependencies. Found a consistent dependency graph (consorcio → expenses/invoices → debt/payments/incomes_outputs). Also identified 4 tech debt items (documented in `docs/cesar-tech-debt.md`).
+
+**User:** Marked inconsistencies as tech debt, not blockers. Proceed with P0.
+
+**Agent:** `general` subagent
+
+**Changes:**
+
+| File | Change |
+|---|---|
+| `src/shared/state.rs` | Wire all 16 repos + 11 services in `AppState::new()`. Added `payment_service` field. Removed 4 `Option` constructor params. Added imports for all `Pg*Repository` types and domain traits. |
+| `src/main.rs` | Changed to `AppState::new().await` (was `AppState::new(None, None, None, None).await`). |
+
+**Wire-up order (bottom-up):**
+
+1. **Layer 1 — all PG repos** (16 repos, all `PgPool::new(pool)`)
+2. **Layer 2 — services** (11 services, with cross-module deps):
+   - Consorcio: `ConsorcioService`, `PropietarioService`, `PeriodService` grouped into `ConsorcioModule`
+   - Invoices: `InvoiceService` + `NotaService` share same `Arc<dyn InvoiceRepository>`, `ReciboService` gets its own
+   - Debt: `LiquidacionService` (6 deps including expense_repo, concept_repo, uf_repo from other modules), `CertificadoDeudaService`
+   - Incomes: `IncomeOutputService` (needs period_repo, invoice_repo from other modules)
+   - Payments: `PaymentService` (takes repos by value, needs period_repo, uf_repo)
+
+**Tests:** 1,169 passed, 0 failures.
+
+**User:** Validation successful. Changes committed.
+
+### P1: Payments Handler
+
+**Context:** Only module missing its handler (5/6 had handlers). Payments had service + repo but no HTTP routes.
+
+**Agent:** `general` subagent
+
+**Endpoints created:**
+
+| Endpoint | Method | Service Method |
+|---|---|---|
+| `POST /api/v1/payments` | create | `PaymentService::create_payment` |
+| `POST /api/v1/payments/{id}/reverse` | reverse | `PaymentService::reverse_payment` |
+| `GET /api/v1/payments/unit/{unit_id}/balance` | read | `PaymentService::get_unit_balance` |
+| `GET /api/v1/payments/unit/{unit_id}/history` | read | `PaymentService::get_payment_history` |
+
+**Files changed:**
+
+| File | Change |
+|---|---|
+| `src/payments/handler.rs` | Created (4 handlers + router, following invoices/consorcio patterns) |
+| `src/payments/mod.rs` | Added `pub mod handler;` |
+| `src/main.rs` | Imported `cesar::payments`, built `payments_routes`, merged into app router |
+
+**Not implemented:** `GET /api/v1/payments/{id}` and `GET /api/v1/payments` — `PaymentService` lacks `get_payment` and `list_payments` methods. Documented as TD-5.
+
+**Tests:** 1,169 passed, 0 failures.
+
+**User:** Validation successful. Changes committed.
+
+### Backend Readiness Summary
+
+All 6 modules now have: domain models, services, handlers, PG repos, and AppState wiring.
+
+| Module | Domain | Service | Handler | PG Repo | Wired |
+|---|---|---|---|---|---|
+| consorcio | ✅ | ✅ | ✅ | ✅ | ✅ |
+| expenses | ✅ | ✅ | ✅ | ✅ | ✅ |
+| invoices | ✅ | ✅ | ✅ | ✅ | ✅ |
+| debt | ✅ | ✅ | ✅ | ✅ | ✅ |
+| payments | ✅ | ✅ | ✅ | ✅ | ✅ |
+| incomes_outputs | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**Tests:** 1,169 pass, 0 fail. **All 61 OpenAPI endpoints should now be reachable.**
+
+### Tech Debt Tracked
+
+| # | Concern | File |
+|---|---|---|
+| TD-1 | Expenses handler builds services per-request | `docs/cesar-tech-debt.md` |
+| TD-2 | Incomes/outputs uses concrete generic on AppState | `docs/cesar-tech-debt.md` |
+| TD-3 | Payments service takes repos by value | `docs/cesar-tech-debt.md` |
+| TD-4 | Debt handler accesses repos directly | `docs/cesar-tech-debt.md` |
+| TD-5 | Payments service missing get/list methods | `docs/cesar-tech-debt.md` |
+
+### Next: Integration smoke test — boot app with real PostgreSQL, hit a few endpoints.
+
