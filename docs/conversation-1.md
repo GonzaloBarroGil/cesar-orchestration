@@ -487,3 +487,105 @@ Reprioritized per user directive: TD-5 (feature gap) and TD-3 (Arc consistency) 
 
 ### Next: cesar-web integration prep — orval regen against current OAS, MSW audit, Wave 3 assessment.
 
+---
+
+## Phase 7 — Cesar-Web Prep + Wave 3 Planning (July 14, 2026)
+
+### Cesar-Web Integration Readiness Assessment
+
+**Agent:** `explore` subagent — comprehensive audit of cesar-web against current cesar backend.
+
+**OAS + orval status:**
+| Check | Result |
+|---|---|
+| `sync-oas.sh` (cesar → cesar-web) | ✅ 6,093 lines synced |
+| `npm run gen:api` (orval) | ✅ 175 files, zero errors |
+| `tsc --noEmit` | ✅ Zero errors |
+| `vitest run` | ✅ 108 tests, 16 files |
+
+**PLAN.md status:** 20/70 tasks complete (Waves 1-2). Wave 3 (Expenses + Invoices) — **0 of 16 tasks started**.
+
+**Feature directories:** `src/features/expenses/` and `src/features/invoices/` do not exist.
+
+**Key findings:**
+1. All SPEC documents exist and are APPROVED (expenses 278 lines, invoices 289 lines)
+2. All 11 BDD `.feature` files exist (30 + 28 scenarios) but zero step definitions written
+3. All orval hooks generated (15 expense + 13 invoice)
+4. MSW handlers cover 100% of endpoints (15 expense + 12 invoice) but return hand-typed shapes
+
+### MSW Transform Fix
+
+**Agent:** `general` subagent
+
+**Problem:** 6 of 7 MSW handler modules returned hand-typed fixture shapes incompatible with orval-generated types. Field name mismatches (`total_cost` vs `cost`, `description` vs `item`), enum mismatches (`"A"` vs `SERVICIOS`), structural mismatches (flat vs `{data: ...}` wrapped). Only consorcios had a transform layer.
+
+**Fix:** Created transform functions for all 6 remaining modules, following the consorcio pattern:
+
+| Module | Transform file | Functions | Handlers |
+|---|---|---|---|
+| expenses | `expenseTransform.ts` | 4 | 15 |
+| invoices | `invoiceTransform.ts` | 4 | 13 |
+| debt | `debtTransform.ts` | 6 | 9 |
+| payments | `paymentTransform.ts` | 3 | 6 |
+| incomes-outputs | `incomeOutputTransform.ts` | 2 | 7 |
+| auth | `authTransform.ts` | 2 | 3 |
+
+**Total:** 21 transform functions, 53 handlers updated. Key mappings: field renames (`description→item`, `total_cost→cost`), enum maps (concept groups), response wrapping (`{data: Invoice}`), missing fields (`provider_type`).
+
+**User:** Linting errors detected.
+
+**Assistant:** Ran `npx biome check --write src/` — fixed 10 files (import ordering + formatting). All three checks green.
+
+**Result:** MSW responses now match orval types everywhere. tsc clean, vitest 108/108.
+
+### Wave 3 Planning
+
+**User:** "Please, plan the Wave 3 approach in detail."
+
+**Agent:** `explore` subagent — comprehensive research covering PLAN.md tasks, SPEC documents, orval hooks, BDD features, MSW handlers, fixture data, routing, component/hook/page/test patterns from consorcios.
+
+**Plan structure:**
+
+### T2 Expenses (8 tasks)
+| Task | What |
+|---|---|
+| T2.1 | 10 components (ExpenseList, ExpenseFilters, ExpenseForm, ExpenseDetail, ExpenseActions, VersionHistory, ProviderList, ProviderForm, ConceptList, CategoryList) |
+| T2.2 | queryKeys.ts + 9 mutation wrappers (DEC-001 on approve/reject) |
+| T2.3 | 7 pages + routing (inside ADMIN RoleGuard) |
+| T2.4 | 30 BDD step definitions (5 feature files) |
+| T2.5 | Vitest component tests |
+| T2.6 | Playwright E2E + axe-core a11y |
+| T2.7 | A11y fixes |
+| T2.8 | Contract verification |
+
+### T3 Invoices (8 tasks)
+| Task | What |
+|---|---|
+| T3.1 | 12 components (InvoiceList, FacturaA/B/C forms, InvoiceDetail, InvoiceItems, InvoiceTotals, CaeQrDisplay, NotaForm, ReciboForm, ReciboDetail, AnnulButton) |
+| T3.2 | queryKeys.ts + 10 mutation wrappers (DEC-001 on 4 annul mutations), IVA client-side computation |
+| T3.3 | 9 pages + routing (OUTSIDE RoleGuard — ADMIN+ACCOUNTANT, component-level annul guard) |
+| T3.4-T3.8 | Same test/verify pattern as Expenses |
+
+### Key Design Decisions
+
+| Decision | Rationale |
+|---|---|
+| **Invoices outside RoleGuard** | ACCOUNTANT must create/view invoices. ADMIN-only restrictions via component-level annul button guard (`user.role !== "ADMIN"`) |
+| **T2 first, T3 second** (sequential) | Safer — learn from expenses patterns before building the more complex invoices feature |
+| **Reuse shared components** | `MoneyDisplay`, `StatusBadge`, `CUITInput`, `IvaConditionSelect`, `PeriodPicker` from `src/components/shared/` |
+| **DEC-001** (optimistic updates) | On approve/reject/annul mutations with rollback |
+| **DEC-002** (confirmation dialogs) | On tombstone/reject/annul actions |
+
+### Execution phases
+
+| Phase | Feature | Subagent | Tasks |
+|---|---|---|---|
+| 1A | T2 Expenses | `feature-developer` | T2.1 → T2.2 → T2.3 |
+| 1B | T2 Tests | `quality-engineer` | T2.4 → T2.5 → T2.6 |
+| 1C | T2 Verify | `feature-developer` + `contract-guardian` | T2.7 → T2.8 |
+| 2A | T3 Invoices | `feature-developer` | T3.1 → T3.2 → T3.3 |
+| 2B | T3 Tests | `quality-engineer` | T3.4 → T3.5 → T3.6 |
+| 2C | T3 Verify | `feature-developer` + `contract-guardian` | T3.7 → T3.8 |
+
+### Next: Delegate Phase 1A — T2 Expenses components, hooks, and pages.
+
