@@ -222,43 +222,71 @@ This document does NOT supersede project constitutions on matters of:
 
 ## 9. Current Ecosystem State (2026-07-13)
 
-_Last assessed: 2026-07-13. See `docs/ecosystem-assessment-2026-07-13.md` for full details._
+_Last assessed: 2026-07-15. See `docs/ecosystem-assessment-2026-07-13.md` for initial assessment._
 
 ### cesar — Backend
 
 - **Constitution**: APPROVED (2026-06-21), ADR-006 (Ecosystem) committed 2026-07-13
-- **Domain models**: All 6 modules complete (12,839 lines)
-- **Services**: All 6 modules complete (7,647 lines)
-- **Handlers**: 5 of 6 (payments handler missing)
-- **Tests**: 1,083 passing, 0 failures (unit/property against mock repos)
-- **DB migrations**: 2 of ~22 tables (users + consorcios only)
-- **PG repositories**: 0 of 16 implemented (1 stub file with todo!())
-- **AppState**: All service/repo fields set to `None` — app boots but business endpoints unreachable
-- **Last commit**: `docs(constitution): [CONSTITUTION] new ADR on ecosystem orchestration`
+- **Domain models**: All 6 modules complete
+- **Services**: All 6 modules complete
+- **Handlers**: 6 of 6 (payments handler implemented)
+- **Tests**: 1,169 passing, 0 failures
+- **DB migrations**: Complete — 8 migration files, all 6 modules covered
+- **PG repositories**: 16 of 16 implemented (5,270 lines across all modules)
+- **AppState**: Fully wired — all repos + services connected
+- **Seed users**: Binary `seed_admin` available (argon2id)
+- **Smoke test**: Verified — login, consorcio CRUD against real PostgreSQL
+- **Last commit**: `feat(payments): [IMPLEMENT] prepare interface for cesar web`
 
 ### cesar-web — Frontend
 
 - **Constitution**: APPROVED (2026-06-25), ADR-008 (Ecosystem) committed 2026-07-13
-- **Features implemented**: 3 of 9 (auth, consorcios, layout) — Waves 1-2
-- **Tests**: 108 passing, 0 failures (16 test files)
-- **BDD**: 27 `.feature` files across all 9 modules. Zero step definitions written.
-- **Generated API**: All 7 endpoint modules + 156 model types via orval
-- **PLAN.md**: Out of sync — claims 69/69 complete, reality is 20/69
-- **CI pipeline**: None
-- **Orval source**: Fragile `/tmp/` workaround
-- **Last commit**: `docs(constitution): [CONSTITUTION] new ADR on ecosystem orchestration`
+- **Features implemented**: 5 of 9 (auth, consorcios, layout, expenses, invoices) — Waves 1-3
+- **Tests**: 305 passing, 0 failures (38 test files)
+- **Playwright E2E**: 32 scenarios across expenses + invoices
+- **A11y**: 17 audits passing (WCAG 2.1 AA)
+- **TypeScript**: `tsc --noEmit` clean
+- **Orval pipeline**: Clean — `sync-oas.sh` + `gen:api` works end-to-end
+- **MSW handlers**: All 7 modules, all type-compatible via transform layer
+- **CI pipeline**: GitHub Actions (typecheck, lint, test, build)
+- **PLAN.md**: Out of sync — shows Wave 3 as PENDING despite implementation
+- **Last commit**: `test(invoices): [TEST,GREEN] write passing test for new components`
 
-### Blockers (prioritized)
+### Remaining Features (Waves 4-7)
 
-| Priority | Blocker | Project | Unblocks |
-|---|---|---|---|
-| P0 | DB migrations (20 tables missing) | cesar | All PG repos, all cesar-web integration |
-| P0 | PG repository implementations (16 traits) | cesar | All cesar endpoints |
-| P0 | AppState wire-up with real repos | cesar | Functional backend |
-| P1 | Payments handler | cesar | Payments routes |
-| P1 | PLAN.md correction | cesar-web | Accurate orchestration |
-| P2 | OAS spec fixes (4 issues) | cesar | Clean orval pipeline |
-| P2 | CI pipeline | cesar-web | Automated quality gates |
+| Wave | Feature | Status |
+|---|---|---|
+| W4 | T4 Debt | ⬜ Pending |
+| W5 | T5 Payments + T6 Incomes/Outputs | ⬜ Pending |
+| W6 | T7 Dashboard | ⬜ Pending |
+| W7 | T8 Final Validation | ⬜ Pending |
+
+### Blockers — RESOLVED
+
+All P0/P1/P2 blockers from the initial assessment are resolved:
+
+| Priority | Blocker | Status |
+|---|---|---|
+| P0 | DB migrations | ✅ Complete |
+| P0 | PG repository implementations | ✅ Complete |
+| P0 | AppState wire-up | ✅ Complete |
+| P1 | Payments handler | ✅ Complete |
+| P1 | PLAN.md correction | ⬜ Still out of sync |
+| P2 | OAS spec fixes | ✅ Complete |
+| P2 | CI pipeline | ✅ Complete |
+
+### Tech Debt
+
+| # | Item | Status |
+|---|---|---|
+| TD-1 | Expenses per-request service construction | Deferred post-v0.1 |
+| TD-2 | Incomes/outputs concrete generic on AppState | Deferred post-v0.1 |
+| TD-3 | Payments repos by value | ✅ Fixed |
+| TD-4 | Debt handler accesses repos directly | Deferred post-v0.1 |
+| TD-5 | Missing get/list payments service methods | ✅ Fixed |
+| TD-6 | authTransform omitted consorcio_id/nombre_completo | ✅ Fixed |
+| TD-7 | OAS no GET /invoices list endpoint | Pending |
+| TD-8 | auth.spec.ts expects stale placeholder text | Pending |
 
 ---
 

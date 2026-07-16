@@ -589,3 +589,105 @@ Reprioritized per user directive: TD-5 (feature gap) and TD-3 (Arc consistency) 
 
 ### Next: Delegate Phase 1A — T2 Expenses components, hooks, and pages.
 
+---
+
+## Phase 8 — Wave 3 Execution: Expenses + Invoices (July 14-15, 2026)
+
+### 1A: T2 Expenses — Components, Hooks, Pages
+
+**Agent:** `general` subagent
+
+Created 19 files in `src/features/expenses/`:
+
+| Type | Files |
+|---|---|
+| Components (10) | ExpenseList, ExpenseFilters, ExpenseForm, ExpenseDetail, ExpenseActions, VersionHistory, ProviderList, ProviderForm, ConceptList, CategoryList |
+| Pages (7) | ExpensesPage, ExpenseCreatePage, ExpenseDetailPage, ProviderListPage, ProviderFormPage, ConceptListPage, CategoryListPage |
+| Infrastructure (2) | queryKeys.ts, index.ts |
+
+**Routing:** 8 routes inside `<RoleGuard requiredRole="ADMIN">`, lazy-loaded.
+
+**Verification:** tsc 0 errors, vitest 108/108, biome clean.
+
+### 1B: T2 Expenses — Tests
+
+**Agent:** `general` subagent
+
+| Type | Files | Tests |
+|---|---|---|
+| Vitest | 10 test files (CategeryList + VersionHistory added after audit) | 89 → 102 |
+| Playwright E2E | 1 spec (19 scenarios initially, reduced to 16 after fixing) | 16/16 |
+| A11y | 1 spec | 9/9 |
+
+**User audit:** Found CategoryList and VersionHistory missing tests. Delegate fixed → +16 tests, all 10 components covered.
+
+**E2E fix iterations:**
+1. Initial run: selector mismatches (`getByLabelText` doesn't exist), fixture data mismatches (wrong CUIT numbers, wrong expense descriptions)
+2. Root cause found: `authTransform.ts` was missing `consorcio_id` and `nombre_completo` from the login response — `loginResponseSchema` (zod) rejected it, causing ALL login attempts to silently fail
+3. Secondary cause: `page.goto()` does full page reload, MSW service worker doesn't reinitialize in time for API calls. Fix: use link-click navigation (`getByRole("link", ...).click()`) instead of `page.goto()` for post-login navigation
+4. Final: 16/16 E2E pass, 9/9 a11y audits pass
+
+### 1C: T2 A11y Fixes
+
+**Finding:** Providers page had 2 WCAG violations:
+- Icon-only `<Trash2>` buttons (tombstone) — no accessible name → added `aria-label="Eliminar {provider.name}"`
+- Icon-only `<Edit>` links — no accessible name → added `aria-label="Editar {provider.name}"`
+
+Both fixed in `ProviderList.tsx`. All 9 a11y audits pass.
+
+### 2A: T3 Invoices — Components, Hooks, Pages
+
+**Agent:** `general` subagent
+
+Created 24 files in `src/features/invoices/`:
+
+| Type | Files |
+|---|---|
+| Components (12) | InvoiceList, FacturaAForm, FacturaBForm, FacturaCForm, InvoiceDetail, InvoiceItems, InvoiceTotals, CaeQrDisplay, NotaForm, ReciboForm, ReciboDetail, AnnulButton |
+| Pages (10) | InvoicesPage, InvoiceDetailPage, FacturaA/B/C CreatePage, NotaCredito/Debito CreatePage, ReciboCreatePage, ReciboDetailPage |
+| Infrastructure (2) | queryKeys.ts, index.ts |
+
+**Supporting changes:**
+- `StatusBadge.tsx` — added `Activa`/`Anulada`/`Activo`/`Anulado` entries
+- `invoices.ts` MSW handler — added `GET /invoices` list handler (no OAS endpoint exists)
+- `CaeQrDisplay.tsx` — fixed WCAG AA color contrast (text-neutral-400 → text-neutral-500)
+
+**Routing:** 9 routes OUTSIDE `<RoleGuard requiredRole="ADMIN">` (ADMIN + ACCOUNTANT access). AnnulButton hidden for ACCOUNTANT via component-level `user?.role !== "ADMIN"` guard.
+
+**Verification:** tsc 0 errors, vitest 213/213, biome clean.
+
+### 2B: T3 Invoices — Tests
+
+**Agent:** `general` subagent
+
+| Type | Files | Tests |
+|---|---|---|
+| Vitest | 12 test files (ReciboDetail added after audit) | 81 |
+| Playwright E2E | 1 spec | 16/16 |
+| A11y | 1 spec | 8/8 |
+
+**User audit:** ReciboDetail missing test → delegate added (11 tests). All 12 components covered.
+
+**Supporting fixes:**
+- MSW invoice create handlers now compute subtotal/IVA (were crashing detail pages with $0 totals)
+- Pre-existing issue noted: `auth.spec.ts:112` expects stale "Facturación — Próximamente" placeholder text (not our scope)
+
+### Wave 3 Summary
+
+| Feature | Components | Pages | Vitest | E2E | A11y | Status |
+|---|---|---|---|---|---|---|
+| T2 Expenses | 10 | 7 | 102 tests | 16/16 | 9/9 | ✅ Complete |
+| T3 Invoices | 12 | 10 | 81+11 tests | 16/16 | 8/8 | ✅ Complete |
+
+**Cesar-web totals:** 305 Vitest tests (38 files), 32 E2E scenarios, 17 a11y audits. tsc 0 errors, biome 0 errors.
+
+### Technical debt tracked (Wave 3)
+
+| # | Issue |
+|---|---|
+| TD-6 | `authTransform.ts` omitted `consorcio_id` and `nombre_completo` — broke login silently for all features |
+| TD-7 | OAS spec has no `GET /invoices` list endpoint — invoices page uses raw `apiClient` instead of orval hook |
+| TD-8 | `auth.spec.ts:112` expects stale "Facturación — Próximamente" placeholder — needs update for new invoices page |
+
+### Next: Ecosystem state assessment, then Wave 4 (Debt).
+
