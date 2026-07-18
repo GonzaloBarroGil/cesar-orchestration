@@ -154,19 +154,32 @@ All 6 modules committed. AppState fully wired. Seed admin binary available.
    - `GenerateModal.tsx` — Added `aria-label="Cerrar"`
    - 16 debt test files (unit + Playwright E2E + a11y)
 
-### Remaining: Expenses + Invoices Test Stabilization
+### Expenses + Invoices Test Stabilization (2026-07-17)
 
-16 untracked test files for expenses (7) and invoices (9) with 19 failing tests:
+**16 test files fixed** — all 19 failing tests resolved:
 
-**Invoices (9 files):** All missing `MockAuthProvider` — components like `AnnulButton` use `useAuth()`. Pattern identical to debt fix.
+| Module | Files | Issues Fixed |
+|---|---|---|
+| Invoices (9) | FacturaA/B/C CreatePage, InvoiceDetailPage, InvoicesPage, NotaCredito/Debito CreatePage, ReciboCreatePage, ReciboDetailPage | Added `MockAuthProvider` wrapper (AnnulButton uses `useAuth()`). Fixed mock data to match generated `Invoice`/`Recibo` types (Money objects, field names). |
+| Expenses (7) | CategoryListPage, ConceptListPage, ExpenseCreatePage, ExpenseDetailPage, ExpensesPage, ProviderFormPage, ProviderListPage | Fixed empty-state assumptions (headings only render when data present). Corrected label names (Descripcion, Costo (ARS), Nombre, Nuevo Proveedor). Fixed `getAllByText` for duplicate "Servicios". Fixed submit button text (Guardando...). |
 
-**Expenses (7 files):** Wrong text selectors (e.g., "Categorias" vs "Categorías"), incorrect mock data shapes.
+### Biome Linting — 111 errors eliminated
 
-Biome linting: 111 `noExplicitAny` errors — pre-existing project-wide pattern in all test files. Deferred for separate session.
+All 80 `noExplicitAny` replaced with `as Partial<ReturnType<typeof UseHookName>>` — type-safe per-hook cast, no `any`. 20 `organizeImports` auto-fixed.
+
+### Final Verification
+
+| Check | Result |
+|---|---|
+| Vitest | 68 files, 437 tests, 0 failures |
+| tsc --noEmit | Clean |
+| Biome | 0 errors |
+
+Wave 4 (Debt) complete — all tests, a11y, and linting green.
 
 ---
 
-## Current Ecosystem State (2026-07-16)
+## Current Ecosystem State (2026-07-17)
 
 ### cesar — Backend
 
@@ -176,25 +189,23 @@ Biome linting: 111 `noExplicitAny` errors — pre-existing project-wide pattern 
 - AppState fully wired
 - Seed admin binary available (argon2id)
 - 43 tests passing, 0 failures
-- 14 commits ahead of origin/main
 
 ### cesar-web — Frontend
 
-- Features: auth, consorcios, expenses, invoices, debt (Waves 1-4)
-- Debt components: 15 files (pages, detail views, lists, modals, buttons, query keys)
-- Debt tests: 14 test files, 84 tests passing + 2 E2E specs + 1 a11y spec
-- A11y fixes: MoneyDisplay color contrast, aria-labels on filters and close buttons
-- `tsc --noEmit` clean
-- Staged changes pending HITL commit
+- Features: auth, consorcios, expenses, invoices, debt (Waves 1-4 complete)
+- 68 test files, **437 tests, 0 failures**
+- 36 new test files across debt, expenses, invoices (from crash recovery)
+- Biome: 0 errors. TypeScript: clean
+- All `as any` replaced with `as Partial<ReturnType<typeof Hook>>`
 
 ### Remaining Work
 
 | Wave | Feature | Status |
 |---|---|---|
-| W4 | T4 Debt | Components done. Tests stabilized, pending commit. |
-| W5 | T5 Payments + T6 Incomes/Outputs | ⬜ Pending |
-| W6 | T7 Dashboard | ⬜ Pending |
-| W7 | T8 Final Validation | ⬜ Pending |
+| W4 | T4 Debt | Done |
+| W5 | T5 Payments + T6 Incomes/Outputs | Pending |
+| W6 | T7 Dashboard | Pending |
+| W7 | T8 Final Validation | Pending |
 
 ### Technical Debt
 
@@ -202,8 +213,6 @@ Biome linting: 111 `noExplicitAny` errors — pre-existing project-wide pattern 
 |---|---|---|
 | TD-7 | OAS no GET /invoices list endpoint | Pending |
 | TD-8 | auth.spec.ts stale placeholder text | Pending |
-| — | 19 failing tests in expenses/invoices (untracked) | Fix in progress |
-| — | 111 biome `noExplicitAny` lint errors | Deferred |
 
 ---
 
