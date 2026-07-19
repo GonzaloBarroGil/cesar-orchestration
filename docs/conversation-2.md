@@ -192,18 +192,54 @@ Wave 4 (Debt) complete — all tests, a11y, and linting green.
 
 ### cesar-web — Frontend
 
-- Features: auth, consorcios, expenses, invoices, debt (Waves 1-4 complete)
-- 68 test files, **437 tests, 0 failures**
-- 36 new test files across debt, expenses, invoices (from crash recovery)
+- Features: auth, consorcios, expenses, invoices, debt, payments, incomes-outputs (Waves 1-5 complete)
+- 84 test files, **557 tests, 0 failures**
+- 73 component files across 7 feature modules
 - Biome: 0 errors. TypeScript: clean
 - All `as any` replaced with `as Partial<ReturnType<typeof Hook>>`
+
+### Wave 5 — Payments + Incomes/Outputs (2026-07-17)
+
+**Agent:** `general` subagent (feature-developer not available as direct agent type)
+
+#### T5 — Payments (13 components, 8 test files)
+
+Components: `PaymentListPage` (two-tab: Pagos/Balances), `PaymentDetailPage`, `PaymentList`, `PaymentFilters`, `PaymentCreateModal`, `PaymentDetail`, `ReverseButton` (DEC-001 + DEC-002), `UnitBalanceCard`, `UnitHistoryTable`, `PaymentMethodBadge`, `NoVoucherWarning`, `queryKeys.ts`
+
+- Voucher conditional logic: voucher_number field visible only for CASH payments
+- DEC-001 optimistic update on reverse (SignButton pattern)
+- DEC-002 confirmation dialog with optional reason field
+- ADMIN-gated via `useAuth` in ReverseButton
+- Unit balance card with total_paid/total_debt/outstanding/overpayment
+- Replaced Placeholder route in App.tsx with real routes
+
+#### T6 — Incomes/Outputs (12 components, 8 test files)
+
+Components: `EntryListPage` (direction filter: Todos/INCOME/OUTPUT), `EntryDetailPage` (tabs: General/Historial), `EntryList`, `EntryCreateModal`, `EntryDetail`, `CancelButton`, `DirectionBadge`, `SummaryPage` (two tabs: Período/Acumulado), `queryKeys.ts`, `subTypes.tsx`
+
+- Dynamic sub_type selector based on direction (INCOME: RENT/SERVICE/INSURANCE; OUTPUT: SALARY/INVESTMENT/LEGAL)
+- Conditional invoice_id field only for INCOME_RENT
+- Migration tags for TEMP sub-types ("Migración pendiente")
+- Summary page with period + cross-period calculations
+- Replaced Placeholder route in App.tsx with 3 real routes
+
+#### Verification
+
+| Check | Result |
+|---|---|
+| biome | 245 files, 0 errors |
+| tsc --noEmit | Clean |
+| tsc -b | Clean |
+| Vitest | 84 files, **557 tests, 0 failures** |
+
+Waves 1-5 complete. +16 test files, +120 tests from Wave 5.
 
 ### Remaining Work
 
 | Wave | Feature | Status |
 |---|---|---|
 | W4 | T4 Debt | Done |
-| W5 | T5 Payments + T6 Incomes/Outputs | Pending |
+| W5 | T5 Payments + T6 Incomes/Outputs | Done |
 | W6 | T7 Dashboard | Pending |
 | W7 | T8 Final Validation | Pending |
 
