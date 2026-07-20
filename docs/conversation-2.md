@@ -192,9 +192,9 @@ Wave 4 (Debt) complete — all tests, a11y, and linting green.
 
 ### cesar-web — Frontend
 
-- Features: auth, consorcios, expenses, invoices, debt, payments, incomes-outputs (Waves 1-5 complete)
-- 84 test files, **557 tests, 0 failures**
-- 73 component files across 7 feature modules
+- Features: auth, consorcios, expenses, invoices, debt, payments, incomes-outputs, dashboard (Waves 1-6 complete)
+- 88 test files, **584 tests, 0 failures**
+- 83 component files across 8 feature modules
 - Biome: 0 errors. TypeScript: clean
 - All `as any` replaced with `as Partial<ReturnType<typeof Hook>>`
 
@@ -234,13 +234,36 @@ Components: `EntryListPage` (direction filter: Todos/INCOME/OUTPUT), `EntryDetai
 
 Waves 1-5 complete. +16 test files, +120 tests from Wave 5.
 
+### Wave 6 — Dashboard (2026-07-17)
+
+**Agent:** `general` subagent
+
+Dashboard: read-only, zero owned endpoints. All data aggregated client-side from 4 modules' existing orval hooks via `useQueries`.
+
+Components: `DashboardPage` (metric grid + period selector), `MetricCard` (loading/error/empty/ready states with color coding), `DashboardGrid` (2×3 responsive), `RecentActivityFeed` (last 5 payments), `IncomeExpenseCard` (income/expense/net with colors).
+
+6 metric cards: Deuda Total, Tasa de Cobranza (color: green ≥80%, yellow 50-80%, red <50%), Pendientes de Aprobación, Liquidaciones Activas, Ingresos/Egresos, Actividad Reciente.
+
+Drill-down links: Deuda → `/debt`, Pendientes → `/expenses`, payments → `/payments/:id`.
+
+Period selector defaults to current OPEN period. Periods resolved from liquidacion data.
+
+| Check | Result |
+|---|---|
+| biome | 255 files, 0 errors |
+| tsc --noEmit | Clean |
+| Vitest (dashboard) | 4 files, 27 tests |
+| Vitest (full) | 88 files, **584 tests, 0 failures** |
+
+Waves 1-6 complete. +4 test files, +27 tests from Wave 6.
+
 ### Remaining Work
 
 | Wave | Feature | Status |
 |---|---|---|
 | W4 | T4 Debt | Done |
 | W5 | T5 Payments + T6 Incomes/Outputs | Done |
-| W6 | T7 Dashboard | Pending |
+| W6 | T7 Dashboard | Done |
 | W7 | T8 Final Validation | Pending |
 
 ### Technical Debt
