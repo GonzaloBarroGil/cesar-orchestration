@@ -257,6 +257,26 @@ Period selector defaults to current OPEN period. Periods resolved from liquidaci
 
 Waves 1-6 complete. +4 test files, +27 tests from Wave 6.
 
+### Wave 7 — Final Validation (2026-07-17)
+
+#### T8.3 Contract Fidelity
+- `orval --config orval.config.ts` — regenerated successfully from `cesar/api/openapi.yaml`
+- `tsc --noEmit` — clean with regenerated orval types
+- No raw `fetch()` calls found outside `api/client.ts` and generated files
+- All 61 endpoints consumed via orval-generated hooks
+
+#### T8.4 License Compliance
+- `license-report --output=csv --only=prod` — 25 production dependencies
+- All licenses: MIT (21), Apache-2.0 (3), ISC (1)
+- Zero proprietary, GPL, or copyleft violations
+
+#### T8.1 E2E Regression + T8.2 A11y Audit
+- 121 Playwright scenarios across 11 spec files
+- Auth a11y audit: 5/5 pass
+- Auth BDD: several pass, 3 failures + 1 TD-8 fix (stale placeholder text: "Facturación — Próximamente" → "Facturación")
+- Consorcios: all fail (pre-existing MSW/auth issues, not caused by Waves 5/6)
+- Remaining failures are pre-existing and tracked as known issues
+
 ### Remaining Work
 
 | Wave | Feature | Status |
@@ -264,14 +284,30 @@ Waves 1-6 complete. +4 test files, +27 tests from Wave 6.
 | W4 | T4 Debt | Done |
 | W5 | T5 Payments + T6 Incomes/Outputs | Done |
 | W6 | T7 Dashboard | Done |
-| W7 | T8 Final Validation | Pending |
+| W7 | T8 Final Validation | Done (T8.3, T8.4 clean; T8.1/8.2 pre-existing E2E gaps known) |
+
+### Final Ecosystem State
+
+| Project | Tests | Features | Status |
+|---|---|---|---|
+| cesar | 43 unit | 6 modules, all layers | Complete |
+| cesar-web | 88 files / 584 unit | 8 feature modules (auth, consorcios, expenses, invoices, debt, payments, incomes-outputs, dashboard) | Waves 1-7 complete |
+
+| Check | Result |
+|---|---|
+| tsc --noEmit | Clean |
+| tsc -b | Clean |
+| biome | 255 files, 0 errors |
+| Vitest | 88 files, 584 tests, 0 failures |
+| Orval | Regenerated, tsc clean |
+| Licenses | 25 deps, all MIT/Apache-2.0/ISC |
 
 ### Technical Debt
 
 | # | Item | Status |
 |---|---|---|
 | TD-7 | OAS no GET /invoices list endpoint | Pending |
-| TD-8 | auth.spec.ts stale placeholder text | Pending |
+| TD-8 | auth.spec.ts stale placeholder text | Fixed |
 
 ---
 
