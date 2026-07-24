@@ -126,14 +126,67 @@ On next Render deploy, admin user will be created automatically. Password visibl
 
 ### Pending
 
-- [ ] Verify cesar-web Vercel deploy succeeds
-- [ ] Login with admin credentials (`ADMIN_PASSWORD` from Render dashboard)
-- [ ] Test full stack end-to-end
+- [x] Verify cesar-web Vercel deploy succeeds
+- [x] Login with admin credentials (`ADMIN_PASSWORD` from Render dashboard)
+- [x] Test full stack end-to-end
 
 ### Key Technical Decisions
 
 - **EAD-002 (implicit): Render over Railway** — Railway OAuth issues + CLI limitations led to Render which provides built-in PostgreSQL, simpler Docker deployment, and free tier
 - **EAD-003 (implicit): Optional infrastructure** — Redis and NATS made optional so deployment works without external services; health check treats "not configured" as healthy
+
+---
+
+## Session 2 — July 24, 2026 (Login Fix + End-to-End Verification)
+
+### Step 8: Debugging Login Failure
+
+**User:** Login returns "Error de conexión. Intente nuevamente." despite deployed backend.
+
+**Curl test:** Backend login endpoint works — returns valid JWT and user info:
+```json
+{
+  "token": "eyJ...",
+  "user": {
+    "id": "358cbd2e-d8a7-4df7-a26e-53b3d1a4572b",
+    "username": "admin",
+    "role": "ADMIN"
+  }
+}
+```
+
+**Vercel build log:** No `VITE_API_URL` in output. User confirmed env var was set in dashboard code but build output shows it was added after initial deploy.
+
+**Network tab:** POST returns 200, but UI shows error screen.
+
+**Root cause:** `loginResponseSchema` in `src/api/schemas.ts` requires `nombre_completo: z.string()` (non-optional), but the backend `UserInfo` struct doesn't return that field. Zod validation fails → catch-all throws "Error de conexión" instead of surfacing the real validation error.
+
+**Fix:** Changed `nombre_completo: z.string()` → `nombre_completo: z.string().optional()` in `src/api/schemas.ts:81`.
+
+**Result:** Login works end-to-end: Vercel SPA → Render API → PostgreSQL users table → JWT returned → session stored.
+
+### Deployed Services (Final)
+
+| Service | Platform | URL | Status |
+|---------|----------|-----|--------|
+| cesar API | Render | `https://cesar-api-ijf1.onrender.com` | ✅ Healthy |
+| cesar DB | Render | PostgreSQL 16 (internal) | ✅ Connected |
+| cesar Web | Vercel | `https://cesar-web-umber.vercel.app` | ✅ Live |
+
+### Environment Variables
+
+| Var | Where | Value |
+|-----|-------|-------|
+| `DATABASE_URL` | Render (auto) | Internal PostgreSQL connection string |
+| `JWT_SECRET` | Render (auto-generated) | SHA-256 random |
+| `ADMIN_USERNAME` | Render | `admin` |
+| `ADMIN_PASSWORD` | Render (auto-generated) | Random (dashboard only) |
+| `VITE_API_URL` | Vercel dashboard | `https://cesar-api-ijf1.onrender.com/api/v1` |
+
+### Known Issues
+
+- `nombre_completo` not returned by backend — user name may appear blank in dashboard (cosmetic, low priority)
+- Render free tier hibernates after 15 min inactivity — first request may take 30s to wake up
 
 ---
 
